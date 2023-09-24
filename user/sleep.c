@@ -8,7 +8,7 @@ main(int argc, char *argv[])
 
   if(argc !=  2 ){
   fprintf(2,"Error sleep");
-  exit(1)
+  exit(1);
   }
 
   int tick = atoi(argv[1]);
