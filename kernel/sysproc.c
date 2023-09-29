@@ -120,3 +120,10 @@ sys_sysinfo(void){
 
 }
 
+uint64
+sys_testpid(void){
+  struct proc* p = myproc();
+
+  return p->pid;
+}
+
