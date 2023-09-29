@@ -127,3 +127,24 @@ sys_testpid(void){
   return p->pid;
 }
 
+uint64
+sys_getparentpid(void)
+{
+  struct proc* parent = myproc()->parent;
+
+  int parent_pid = parent->pid;
+
+  return parent_pid;
+
+}
+
+uint64
+sys_printsys(void)
+{
+  char s[1000];
+  if (argstr(0, s,sizeof(char*)) < 0)
+    return -1;
+
+  printf("%s", s);
+  return 0;
+}

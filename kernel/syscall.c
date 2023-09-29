@@ -104,6 +104,8 @@ extern uint64 sys_close(void);
 extern uint64 sys_trace(void);
 extern uint64 sys_sysinfo(void);
 extern uint64 sys_testpid(void);
+extern uint64 sys_getparentpid(void);
+extern uint64 sys_printsys(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -132,6 +134,8 @@ static uint64 (*syscalls[])(void) = {
 [SYS_trace]   sys_trace,
 [SYS_sysinfo] sys_sysinfo,
 [SYS_testpid] sys_testpid,
+[SYS_getparentpid] sys_getparentpid,
+[SYS_printsys]  sys_printsys,
 };
 
 
@@ -141,6 +145,8 @@ syscall(void)
 {
   int num;
   struct proc *p = myproc();
+
+
 
   num = p->trapframe->a7;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {

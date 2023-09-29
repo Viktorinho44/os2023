@@ -172,6 +172,8 @@ mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 .PRECIOUS: %.o
 
 UPROGS=\
+	$U/_systemcalltest\
+	$U/_getppid\
 	$U/_getpid\
 	$U/_testpid\
 	$U/_sysinfotest\

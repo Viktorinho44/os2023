@@ -26,6 +26,8 @@ int trace(int);
 struct sysinfo;
 int sysinfo(struct sysinfo *);
 int testpid(void);
+int getparentpid(void);
+int printsys(const char*);
 
 // ulib.c
 int stat(const char*, struct stat*);
