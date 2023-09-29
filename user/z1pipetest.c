@@ -7,7 +7,6 @@
 
 
 
-
 void createProccesTree(int depth,int max,int pid);
 
 
@@ -101,7 +100,7 @@ The child process should print a message, and the parent process should wait for
 
 
     /*Process Tree: Create a program that generates a hierarchical process tree using multiple fork calls. 
-    Each process should print its own PID and the PID of its parent process.*/
+    Each process should print its own PID and the PID of its parent process.
 
 
 
@@ -109,35 +108,112 @@ The child process should print a message, and the parent process should wait for
 
     createProccesTree(0,3,1);
     exit(0);
+*/
+
+/*Named Pipes (FIFOs): Explore the concept of named pipes (FIFOs) by creating two processes—one to write data into a FIFO and another to read from it.
+ Ensure synchronization and proper cleanup.*/
+
+ /*Pipeline Processing: Build a task where multiple processes form a pipeline. 
+ Each process in the pipeline reads data from its input, processes it in some way, and passes it to the next process through pipes.
+  For example, you can implement a simple text transformation pipeline.*/
+
+  /*
+  File Redirection: Develop a program that demonstrates file redirection.
+   Allow the user to specify input and output files as command-line arguments and use dup or similar calls to redirect input and output accordingly.*/
+   
+/*
+Process Synchronization: Explore process synchronization concepts using fork. 
+For instance, create a scenario where multiple child processes synchronize their execution using a shared resource (e.g., a semaphore or mutex). */
+
+/*Signal Handling: Design tasks that involve signal handling using fork. 
+One process can send a signal to another process, and the receiver should handle the signal appropriately (e.g., catching and ignoring it).
+*/
+
+int child;
+
+int p[2];
+pipe(p);
+
+child = fork();
+
+if(child == 0 ){
+    
+    sleep(5);
+printf("Child: Waiting for a signal from the parent...\n");
+    close(p[0]);
+
+    char message = 'A';
+
+    write(p[1],&message,sizeof(message));
+
+    close(p[1]);
+
+    kill(getpid());
+
+
+}
+
+else if(child >0){
+        
+        close(p[1]);
+        
+        // Wait for the child to finish
+        wait(0);
+        
+        char message;
+
+        read(p[0],&message,sizeof(message));
+        if(message =='A'){
+            printf("Parent send singnal\n");
+
+        }
+        printf("Parent: Child process has terminated.\n");
+        close(p[0]);
+        
+}
+else{
+    fprintf(2,"error");
+    exit(1);
+}
+
+exit(0);
+
+
+/*
+Parallel Processing: Create a program that utilizes fork to parallelize a task, such as searching for a specific string in a large file.
+ Measure and compare the execution time with and without parallelization.
+  */
+
 
 
 
 }
 
 
-void createProccesTree(int depth,int max,int pid){
 
-        int child;
+// void createProccesTree(int depth,int max,int pid){
 
-        printf("child : %d  parent :%d \n",getpid(),pid);
+//         int child;
 
-        pid = getpid();
+//         printf("child : %d  parent :%d \n",getpid(),pid);
 
-        if( depth < max){
+//         pid = getpid();
 
-            child = fork();
+//         if( depth < max){
+
+//             child = fork();
 
             
 
-            if(child == 0){
-                createProccesTree(depth + 1,max,pid);
-                exit(0);
-            }
-            else{
-                wait(0);
-            }
+//             if(child == 0){
+//                 createProccesTree(depth + 1,max,pid);
+//                 exit(0);
+//             }
+//             else{
+//                 wait(0);
+//             }
             
-        }
+//         }
 
         
-    }
+//     }
