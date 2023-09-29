@@ -172,8 +172,9 @@ mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 .PRECIOUS: %.o
 
 UPROGS=\
-$U/_find\
-$U/_primes2\
+	$U/_z1pipetest\
+	$U/_find\
+	$U/_primes2\
 	$U/_testinZapocet\
 	$U/_pipez\
 	$U/_primes\

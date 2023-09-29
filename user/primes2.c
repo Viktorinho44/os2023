@@ -59,7 +59,7 @@ int main(int argc, int *argv[])
 
         close(p1[1]);
         int prime;
-        while(read(p[0],&prime,sizeof(prime)) > 0 ){
+        while(read(p1[0],&prime,sizeof(prime)) > 0 ){
 
             printf("prime: %d \n",prime);
 
