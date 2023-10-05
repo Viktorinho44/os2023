@@ -191,29 +191,30 @@ Parallel Processing: Create a program that utilizes fork to parallelize a task, 
 
 
 
-// void createProccesTree(int depth,int max,int pid){
+void createProccesTree(int depth,int max,int pid){
 
-//         int child;
+        int child;
 
-//         printf("child : %d  parent :%d \n",getpid(),pid);
+        printf("child : %d  parent :%d \n",getpid(),pid);
 
-//         pid = getpid();
+        pid = getpid();
 
-//         if( depth < max){
+        if( depth < max){
 
-//             child = fork();
+            child = fork();
 
             
 
-//             if(child == 0){
-//                 createProccesTree(depth + 1,max,pid);
-//                 exit(0);
-//             }
-//             else{
-//                 wait(0);
-//             }
+           if(child == 0){
+                           createProccesTree(depth + 1,max,pid);   
+             exit(0);
+           }
+
+         else{
+               wait(0);
+           }
             
-//         }
+       }
 
         
-//     }
+   }

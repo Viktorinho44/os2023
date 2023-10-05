@@ -172,6 +172,11 @@ mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 .PRECIOUS: %.o
 
 UPROGS=\
+	$U/_pipeforktest\
+	$U/_cp\
+	$U/_square\
+	$U/_treeproc\
+	$U/_ulohy\
 	$U/_z1pipetest\
 	$U/_find\
 	$U/_primes2\
