@@ -315,43 +315,22 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  //char *mem;
+  char *mem;
 
-  for( i = 0; i < sz; i += PGSIZE){
+  for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
       panic("uvmcopy: pte should exist");
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
-
-  if( flags & PTE_W ){
-    // Record the page is COW mapping.
-    flags |= PTE_R + PTE_W;
-    // clear PTE_W in the PTEs of both child and parent*
-    flags &= (~PTE_W);
-
-    *pte |=  PTE_R + PTE_W;
-
-    *pte &= (~PTE_W);
-  }
-
-    if(mappages(new, i, PGSIZE, (uint64)pa, flags) != 0){
-      //kfree(mem);
+    if((mem = kalloc()) == 0)
+      goto err;
+    memmove(mem, (char*)pa, PGSIZE);
+    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
+      kfree(mem);
       goto err;
     }
-
-     add_ref((void*)pa);
-
-     uvmunmap(old,i,PGSIZE,0);
-
-     if(mappages(old,i,PGSIZE,pa,flags) != 0){
-        goto err;
-     }
-
-    
-
-
   }
   return 0;
 
