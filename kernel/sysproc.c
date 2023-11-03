@@ -92,3 +92,22 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_sigreturn(void)
+{
+  myproc()->alarmActive = 0;
+  memmove(myproc()->trapframe, myproc()->regs, PGSIZE);
+  kfree(myproc()->regs);
+  return 0;
+}
+
+uint64
+sys_sigalarm(void)
+{
+  argint(0, &(myproc()->interval));
+  argaddr(1, &(myproc()->funcPtr));
+  myproc()->deltaT = myproc()->ticks;
+  return 0;
+
+}
