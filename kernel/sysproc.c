@@ -97,17 +97,28 @@ uint64
 sys_sigreturn(void)
 {
   myproc()->alarmActive = 0;
-  memmove(myproc()->trapframe, myproc()->regs, PGSIZE);
-  kfree(myproc()->regs);
-  return 0;
+  myproc()->ticks = 0;
+  *myproc()->trapframe = *myproc()->regs;
+  return myproc()->trapframe->a0;
 }
 
 uint64
 sys_sigalarm(void)
 {
-  argint(0, &(myproc()->interval));
-  argaddr(1, &(myproc()->funcPtr));
-  myproc()->deltaT = myproc()->ticks;
+  int interval;
+  uint64 handlerAddr;
+  argint(0, &interval);
+  argaddr(1, &handlerAddr);
+
+  if (interval == 0 && handlerAddr == 0)
+  {
+    myproc()->handler = (void (*)()) -1;
+    return 0;
+  }
+
+  myproc()->interval = interval;
+  myproc()->handler = (void(*)()) handlerAddr;
+  myproc()->ticks = 0;
   return 0;
 
 }

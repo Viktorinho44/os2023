@@ -138,11 +138,14 @@ struct proc {
   struct context context;      // swtch() here to run process
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
-  char name[16];                // Process name (debugging)
- int interval;                // interval of alarm
+  char name[16];  
+  
+                // Process name (debugging)
+  int interval;                // interval of alarm
   int ticks;                   // ticks of alarm
   int deltaT;                  // time between last call
   uint64 funcPtr;              // ptr to function handler
   struct trapframe *regs;      // all regs that need to be saved
   int alarmActive;  
+  void (*handler)();  
 };
