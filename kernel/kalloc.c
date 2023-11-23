@@ -68,7 +68,11 @@ kfree(void *pa)
 void *
 kalloc(void)
 {
+
   struct run *r;
+  push_off();
+  int cpu_id = cpuid();
+  
 
   acquire(&kmem.lock);
   r = kmem.freelist;
