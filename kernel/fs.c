@@ -416,43 +416,7 @@ bmap(struct inode *ip, uint bn)
     brelse(bp);
     return addr;
   }
-    // Load doubly-indirect block, allocating if necessary.
-    bn -= NINDIRECT;
-    //allocate
-    if ((addr = ip->addrs[DDIRECT]) == 0)
-    {
-      ip->addrs[DDIRECT] = addr = balloc(ip->dev);
-    }
-    bp = bread(ip->dev, addr);
-    a = (uint *)bp->data;
-     //doubly-indirect block ,we need to allocate on the block 
-    int index = bn / NINDIRECT;
-    for (int i = 0; i <= index; i++)
-    {
-      if ((addr = a[i]) == 0)
-      {	
-        a[i] = addr = balloc(ip->dev);
-        //log write must be in the loop 
-        //because when we read we have not the fs syscall
-        log_write(bp);
-      }
-    }
-  	
-    brelse(bp);
-     //read the exacyly indirect block , and allocate a block and write 
-    bn -= NINDIRECT * index;
-    bp = bread(ip->dev, addr);
-    a = (uint *)bp->data;
-    if ((addr = a[bn]) == 0)
-    {
-      a[bn] = addr = balloc(ip->dev);
-      log_write(bp);
-    }
-    brelse(bp);
-    return addr;
-  
 
-  
   panic("bmap: out of range");
 }
 
