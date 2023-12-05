@@ -1,0 +1,346 @@
+[1mdiff --git a/Makefile b/Makefile[m
+[1mindex 8e74f52..8b658d3 100644[m
+[1m--- a/Makefile[m
+[1m+++ b/Makefile[m
+[36m@@ -188,6 +188,7 @@[m [mUPROGS=\[m
+ 	$U/_grind\[m
+ 	$U/_wc\[m
+ 	$U/_zombie\[m
+[32m+[m	[32m$U/_mmaptest\[m
+ [m
+ [m
+ [m
+[1mdiff --git a/kernel/proc.c b/kernel/proc.c[m
+[1mindex 58a8a0b..ed3db92 100644[m
+[1m--- a/kernel/proc.c[m
+[1m+++ b/kernel/proc.c[m
+[36m@@ -320,6 +320,16 @@[m [mfork(void)[m
+ [m
+   acquire(&np->lock);[m
+   np->state = RUNNABLE;[m
+[32m+[m
+[32m+[m[32m  for(int i = 0; i <NVMA; i++){[m
+[32m+[m[32m    memmove(&np->vma[i],&p->vma[i],sizeof(p->vma[i]));[m
+[32m+[m[32m    if(p->vma[i].f){[m
+[32m+[m[32m      filedup(p->vma[i].f);[m
+[32m+[m[32m    }[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m
+[32m+[m
+   release(&np->lock);[m
+ [m
+   return pid;[m
+[36m@@ -360,6 +370,10 @@[m [mexit(int status)[m
+     }[m
+   }[m
+ [m
+[32m+[m[32m  for(int i =0; i<NVMA;i++){[m
+[32m+[m[32m    uvmunmap(p->pagetable,p->vma[i].address,p->vma[i].len/PGSIZE,1);[m
+[32m+[m[32m  }[m
+[32m+[m
+   begin_op();[m
+   iput(p->cwd);[m
+   end_op();[m
+[1mdiff --git a/kernel/proc.h b/kernel/proc.h[m
+[1mindex d021857..ab7f7cd 100644[m
+[1m--- a/kernel/proc.h[m
+[1m+++ b/kernel/proc.h[m
+[36m@@ -18,6 +18,18 @@[m [mstruct context {[m
+   uint64 s11;[m
+ };[m
+ [m
+[32m+[m[32mstruct vma{[m
+[32m+[m[32m  uint64 address;[m
+[32m+[m[32m  int len;[m
+[32m+[m[32m  int prot;[m
+[32m+[m[32m  int offset;[m
+[32m+[m[32m  int fd;[m
+[32m+[m[32m  int flags;[m
+[32m+[m[32m  struct file *f;[m
+[32m+[m[32m};[m
+[32m+[m
+[32m+[m[32m#define NVMA 16[m
+[32m+[m
+ // Per-CPU state.[m
+ struct cpu {[m
+   struct proc *proc;          // The process running on this cpu, or null.[m
+[36m@@ -103,5 +115,6 @@[m [mstruct proc {[m
+   struct context context;      // swtch() here to run process[m
+   struct file *ofile[NOFILE];  // Open files[m
+   struct inode *cwd;           // Current directory[m
+[31m-  char name[16];               // Process name (debugging)[m
+[32m+[m[32m  char name[16];              // Process name (debugging)[m
+[32m+[m[32m  struct vma vma[NVMA];[m
+ };[m
+[1mdiff --git a/kernel/syscall.c b/kernel/syscall.c[m
+[1mindex ed65409..eec38b9 100644[m
+[1m--- a/kernel/syscall.c[m
+[1m+++ b/kernel/syscall.c[m
+[36m@@ -101,6 +101,8 @@[m [mextern uint64 sys_unlink(void);[m
+ extern uint64 sys_link(void);[m
+ extern uint64 sys_mkdir(void);[m
+ extern uint64 sys_close(void);[m
+[32m+[m[32mextern uint64 sys_mmap(void);[m
+[32m+[m[32mextern uint64 sys_munmap(void);[m
+ [m
+ // An array mapping syscall numbers from syscall.h[m
+ // to the function that handles the system call.[m
+[36m@@ -126,6 +128,8 @@[m [mstatic uint64 (*syscalls[])(void) = {[m
+ [SYS_link]    sys_link,[m
+ [SYS_mkdir]   sys_mkdir,[m
+ [SYS_close]   sys_close,[m
+[32m+[m[32m[SYS_mmap] sys_mmap,[m
+[32m+[m[32m[SYS_munmap] sys_munmap,[m
+ };[m
+ [m
+ void[m
+[1mdiff --git a/kernel/syscall.h b/kernel/syscall.h[m
+[1mindex bc5f356..8d02c98 100644[m
+[1m--- a/kernel/syscall.h[m
+[1m+++ b/kernel/syscall.h[m
+[36m@@ -20,3 +20,5 @@[m
+ #define SYS_link   19[m
+ #define SYS_mkdir  20[m
+ #define SYS_close  21[m
+[32m+[m[32m#define SYS_mmap   22[m
+[32m+[m[32m#define SYS_munmap 23[m[41m [m
+\ No newline at end of file[m
+[1mdiff --git a/kernel/sysfile.c b/kernel/sysfile.c[m
+[1mindex 16b668c..ef7ca06 100644[m
+[1m--- a/kernel/sysfile.c[m
+[1m+++ b/kernel/sysfile.c[m
+[36m@@ -503,3 +503,106 @@[m [msys_pipe(void)[m
+   }[m
+   return 0;[m
+ }[m
+[32m+[m
+[32m+[m[32muint64[m
+[32m+[m[32msys_mmap(void){[m
+[32m+[m
+[32m+[m[32m  uint64 addr = 0;[m
+[32m+[m[32m  int len,prot,flags,fd,offset;[m
+[32m+[m[32m  struct file *file;[m
+[32m+[m[32m  struct vma *vma = 0;[m
+[32m+[m
+[32m+[m[32m  argint(1, &len);[m
+[32m+[m[32m  argint(2, &prot);[m
+[32m+[m[32m  argint(3, &flags);[m
+[32m+[m[32m  argfd(4, &fd, &file);[m
+[32m+[m[32m  argint(5,&offset);[m
+[32m+[m[41m    [m
+[32m+[m
+[32m+[m[32m  if(!file->writable && (prot & PROT_WRITE) && (flags & MAP_SHARED))[m
+[32m+[m[32m    return -1;[m
+[32m+[m
+[32m+[m[32m  struct proc* p = myproc();[m
+[32m+[m[32m  len=PGROUNDUP(len);[m
+[32m+[m
+[32m+[m[32m  if(p->sz+len > MAXVA){[m
+[32m+[m[32m    return -1;[m
+[32m+[m[32m  }[m
+[32m+[m[32m  if(offset < 0 || offset%PGSIZE){[m
+[32m+[m[32m    return -1;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  //hladame volne vma[m
+[32m+[m[32m  for(int i = 0; i< NVMA; i++){[m
+[32m+[m[32m    if(p->vma[i].address){[m
+[32m+[m[32m      continue;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    vma = &p->vma[i];[m
+[32m+[m[32m    break;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  if(!vma){[m
+[32m+[m[32m    return -1;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  if(addr==0){[m
+[32m+[m[32m    vma->address = p->sz;[m
+[32m+[m[32m  }[m
+[32m+[m[32m  else{[m
+[32m+[m[32m    vma->address = addr;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  vma->len = len;[m
+[32m+[m[32m  vma->prot = prot;[m
+[32m+[m[32m  vma->flags = flags;[m
+[32m+[m[32m  vma->fd = fd;[m
+[32m+[m[32m  vma->offset = offset;[m
+[32m+[m[32m  vma->f = file;[m
+[32m+[m[32m  filedup(file);[m
+[32m+[m[32m  p->sz+= len;[m
+[32m+[m
+[32m+[m[32m  return vma->address;[m
+[32m+[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m
+[32m+[m[32muint64[m
+[32m+[m[32msys_munmap(void){[m
+[32m+[m[32m  uint64 addr;[m
+[32m+[m[32m  int len;[m
+[32m+[m
+[32m+[m[32m  struct vma* vma = 0;[m
+[32m+[m[32m  struct proc* p =myproc();[m
+[32m+[m
+[32m+[m[32margaddr(0,&addr);[m
+[32m+[m[32margint(1,&len);[m
+[32m+[m[41m [m
+[32m+[m
+[32m+[m[32m  addr=PGROUNDDOWN(addr);[m
+[32m+[m[32m  len=PGROUNDUP(len);[m
+[32m+[m
+[32m+[m[32m  for(int i= 0; i<NVMA; i++){[m
+[32m+[m[32m    if(p->vma[i].address && addr >= p->vma[i].address && addr+len <= p->vma[i].address + p->vma[i].len){[m
+[32m+[m[32m        vma = &p->vma[i];[m
+[32m+[m[32m        break;[m
+[32m+[m[32m      }[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  if(!vma){[m
+[32m+[m[32m    return -1;[m[41m [m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  if(addr != vma->address){[m
+[32m+[m[32m    return -1;[m
+[32m+[m[32m}[m
+[32m+[m[32m  vma->address += len;[m
+[32m+[m[32m  vma->len -= len;[m
+[32m+[m
+[32m+[m[32m  if(vma->flags & MAP_SHARED){[m
+[32m+[m[32m    filewrite(vma->f,addr,len);[m
+[32m+[m[32m  }[m
+[32m+[m[32m  uvmunmap(p->pagetable,addr,len/PGSIZE,1);[m
+[32m+[m[32m  return 0;[m
+[32m+[m[41m  [m
+[32m+[m[32m}[m
+\ No newline at end of file[m
+[1mdiff --git a/kernel/trap.c b/kernel/trap.c[m
+[1mindex 512c850..950dcb3 100644[m
+[1m--- a/kernel/trap.c[m
+[1m+++ b/kernel/trap.c[m
+[36m@@ -5,6 +5,11 @@[m
+ #include "spinlock.h"[m
+ #include "proc.h"[m
+ #include "defs.h"[m
+[32m+[m[32m#include "fs.h"[m
+[32m+[m[32m#include  "sleeplock.h"[m
+[32m+[m[32m#include "file.h"[m
+[32m+[m[32m#include "fcntl.h"[m
+[32m+[m
+ [m
+ struct spinlock tickslock;[m
+ uint ticks;[m
+[36m@@ -67,7 +72,60 @@[m [musertrap(void)[m
+     syscall();[m
+   } else if((which_dev = devintr()) != 0){[m
+     // ok[m
+[31m-  } else {[m
+[32m+[m[32m  }else if(r_scause()== 13 || r_scause()==15){[m
+[32m+[m[32m    uint64 va = r_stval();[m
+[32m+[m[32m    struct vma* vma = 0;[m
+[32m+[m
+[32m+[m[32m    if(va>=p->sz || va < p->trapframe->sp){[m
+[32m+[m[32m      goto killing;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    for(int i=0;i<NVMA ; i++){[m
+[32m+[m[32m      if(va >= p->vma[i].address && va < p->vma[i].address + p->vma[i].len){[m
+[32m+[m[32m        vma = &p->vma[i];[m
+[32m+[m[32m        break;[m
+[32m+[m[32m      }[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    if(!vma){[m
+[32m+[m[32m      goto killing;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    va = PGROUNDDOWN(va);[m
+[32m+[m[32m    char* mem = kalloc();[m
+[32m+[m[32m    if(mem ==0){[m
+[32m+[m[32m      goto killing;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    memset(mem,0,PGSIZE);[m
+[32m+[m[32m    ilock(vma->f->ip);[m
+[32m+[m[32m    readi(vma->f->ip,0,(uint64)mem,va-vma->address+vma->offset,PGSIZE);[m
+[32m+[m[32m    iunlock(vma->f->ip);[m
+[32m+[m
+[32m+[m[32m    int flags = PTE_U;[m
+[32m+[m[32m    if(vma->prot & PROT_READ)[m
+[32m+[m[32m      flags |= PTE_R;[m
+[32m+[m[32m    if(vma->prot & PROT_WRITE)[m
+[32m+[m[32m      flags |= PTE_W;[m
+[32m+[m[32m    if(vma->prot & PROT_EXEC)[m
+[32m+[m[32m      flags |= PTE_X;[m
+[32m+[m
+[32m+[m[32m    if(mappages(p->pagetable,va,PGSIZE,(uint64)mem,flags) != 0){[m
+[32m+[m[32m      goto freeing;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    goto rest;[m
+[32m+[m
+[32m+[m[32m    freeing:[m
+[32m+[m[32m      kfree(mem);[m
+[32m+[m
+[32m+[m[32m    killing:[m
+[32m+[m[32m      p->killed = 1;[m
+[32m+[m[41m    [m
+[32m+[m[32m    rest:[m
+[32m+[m[32m      ;[m
+[32m+[m[32m  }[m[41m [m
+[32m+[m[32m  else {[m
+     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);[m
+     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());[m
+     setkilled(p);[m
+[1mdiff --git a/kernel/vm.c b/kernel/vm.c[m
+[1mindex 5c31e87..81e6f33 100644[m
+[1m--- a/kernel/vm.c[m
+[1m+++ b/kernel/vm.c[m
+[36m@@ -187,7 +187,7 @@[m [muvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)[m
+     if((pte = walk(pagetable, a, 0)) == 0)[m
+       panic("uvmunmap: walk");[m
+     if((*pte & PTE_V) == 0)[m
+[31m-      panic("uvmunmap: not mapped");[m
+[32m+[m[32m      continue;[m
+     if(PTE_FLAGS(*pte) == PTE_V)[m
+       panic("uvmunmap: not a leaf");[m
+     if(do_free){[m
+[36m@@ -321,7 +321,8 @@[m [muvmcopy(pagetable_t old, pagetable_t new, uint64 sz)[m
+     if((pte = walk(old, i, 0)) == 0)[m
+       panic("uvmcopy: pte should exist");[m
+     if((*pte & PTE_V) == 0)[m
+[31m-      panic("uvmcopy: page not present");[m
+[32m+[m[32m    continue;[m
+[32m+[m[32m      //panic("uvmcopy: page not present");[m
+     pa = PTE2PA(*pte);[m
+     flags = PTE_FLAGS(*pte);[m
+     if((mem = kalloc()) == 0)[m
+[1mdiff --git a/user/user.h b/user/user.h[m
+[1mindex 2d6ace6..5a60731 100644[m
+[1m--- a/user/user.h[m
+[1m+++ b/user/user.h[m
+[36m@@ -26,6 +26,9 @@[m [mint getpid(void);[m
+ char* sbrk(int);[m
+ int sleep(int);[m
+ int uptime(void);[m
+[32m+[m[32m//pridame mmap a munmap[m
+[32m+[m[32mvoid* mmap(void *addr,int len,int prot, int flags,int fd,uint offset);[m
+[32m+[m[32mint munmap(void *addr,int len);[m
+ #ifdef LAB_NET[m
+ int connect(uint32, uint16, uint16);[m
+ #endif[m
+[1mdiff --git a/user/usys.pl b/user/usys.pl[m
+[1mindex 01e426e..f6e8b06 100755[m
+[1m--- a/user/usys.pl[m
+[1m+++ b/user/usys.pl[m
+[36m@@ -36,3 +36,5 @@[m [mentry("getpid");[m
+ entry("sbrk");[m
+ entry("sleep");[m
+ entry("uptime");[m
+[32m+[m[32mentry("mmap");[m
+[32m+[m[32mentry("munmap");[m
+\ No newline at end of file[m
