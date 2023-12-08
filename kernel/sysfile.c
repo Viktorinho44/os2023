@@ -363,19 +363,23 @@ sys_open(void)
     }
   }
 
-  if(ip->type == T_DEVICE && (ip->major < 0 || ip->major >= NDEV)){
-    if((ip = symlinkroot(ip)) ==0){
-      end_op();
-      return -1;
+  if (ip->type == T_SYMLINK && (omode & O_NOFOLLOW) == 0) {
+    if ((ip = symlinkroot(ip)) == 0) {
+        end_op();
+        return -1;
     }
-    
-  }
+}
 
-  if(ip->type == T_SYMLINK && (omode & O_NOFOLLOW) ==0){
-    iunlockput(ip);
-    end_op();
-    return -1;
-  }
+// Now handle the resolved inode
+if (ip->type == T_DEVICE) {
+    // Check if the major number is valid
+    if (ip->major < 0 || ip->major >= NDEV) {
+        iunlockput(ip);
+        end_op();
+        return -1;
+    }
+    // Additional handling for device files...
+}
 
   if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
     if(f)
